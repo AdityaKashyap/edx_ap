@@ -1,0 +1,118 @@
+<html>
+<head>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="d3.v3.min.js" charset="utf-8"></script>
+<style>
+/* tell the SVG path to be a thin blue line without any area fill */
+path {
+  stroke-width: 1;
+  fill: none;
+}
+#sras {
+  stroke-width: 2;
+  stroke: steelblue;
+}
+#ad {
+  stroke-width: 2;
+  stroke: orange;
+}
+.axis {
+  shape-rendering: crispEdges;
+}
+.axis line {
+  stroke: lightgrey;
+}
+.axis .minor {
+  stroke-opacity: .5;
+}
+.axis text {
+  font-size: 14;
+  fill: lightgrey;
+}
+</style>
+<script>
+var plot = function() {
+    // define dimensions of graph
+    var m = [80, 80, 80, 80]; // margins
+    var w = 400 - m[1] - m[3];// width
+    var h = 400 - m[0] - m[2]; // height
+
+    // plot range for X and Y
+    var xmin = 0;
+    var xmax = 10;
+    var ymin = 0;
+    var ymax = 10;
+
+    // compute (x,y) data points for function f
+    // using domain [xmin,xmax] and range [ymin,ymax]
+    // quit once we go out of range having found some points
+    function generate_data(f,npts) {
+        if (npts === undefined) npts = 100;
+        var found = false;
+        var data = [];
+        var x = xmin;
+        var step = (xmax - xmin)/npts;
+        var y;
+        while (x <= xmax) {
+            y = f(x);
+             if (y >= ymin && y <= ymax) {
+                 found = true;
+                 data.push({x: x, y: y})
+            } else if (found) break;
+            x += step;
+        }
+        return data;
+    }
+
+    function plot(div_selector,curves) {
+        var xscale = d3.scale.linear().domain([xmin, xmax]).range([0, w]);
+        var yscale = d3.scale.linear().domain([ymin, ymax]).range([h, 0]);
+
+        var line = d3.svg.line()
+            .x(function(d,i) { return xscale(d.x); })
+            .y(function(d) { return yscale(d.y); });
+
+        var graph = d3.select(div_selector).append("svg:svg")
+            .attr("width", w + m[1] + m[3])
+            .attr("height", h + m[0] + m[2])
+            .append("svg:g")
+            .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+
+        var xAxis = d3.svg.axis().scale(xscale).tickSize(-h).tickSubdivide(true);
+        graph.append("svg:g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + h + ")")
+            .call(xAxis);
+
+        var yAxis = d3.svg.axis().scale(yscale).tickSize(-w).orient("left");
+        graph.append("svg:g")
+            .attr("class", "y axis")
+            .call(yAxis);
+
+        $.each(curves,function (index,curve) {
+            graph.append("svg:path").attr("d", line(curve.data)).attr("id", curve.id);
+        });
+    }
+
+    var sras = generate_data(function (x) {
+        // equation for a hyperbola with asymptotes at x0, y0
+        var k=2, x0=8, y0=3;
+        return (-k)/(x - x0) + y0;
+    });
+
+    var ad = generate_data(function (x) {
+        var a = -1; b = 10;
+        return a*x + b;
+    });
+
+    plot('#graph',[{data: sras, id: 'sras'}, {data: ad, id: 'ad'}]);
+    plot('#graph',[{data: sras, id: 'sras'}, {data: ad, id: 'ad'}]);
+};
+
+$(document).ready(function () { plot(); });
+</script>
+</head>
+<body>
+<div id="graph" class="aGraph" style="position:absolute; top: 0, left: 0; float: left;"></div>
+</body>
+
