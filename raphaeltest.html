@@ -1,0 +1,126 @@
+<html>
+<head>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="raphael-min.js"></script>
+<style>
+/* tell the SVG path to be a thin blue line without any area fill */
+path {
+  stroke-width: 1;
+  fill: none;
+}
+#sras {
+  stroke-width: 2;
+  stroke: steelblue;
+}
+#ad {
+  stroke-width: 2;
+  stroke: orange;
+}
+.axis {
+  shape-rendering: crispEdges;
+}
+.axis line {
+  stroke: lightgrey;
+}
+.axis .minor {
+  stroke-opacity: .5;
+}
+.axis text {
+  font-size: 14;
+  fill: lightgrey;
+}
+</style>
+<script>
+var plot = function() {
+    // create SVG representing a plot axis and optional grid lines
+    //  paper -- the Raphael object from which to get Elements
+    //  options -- object with the following attributes
+    //    bbox --  object with x,y,w,h attributes of rect plot bounds
+    //    origin -- object with x,y attributes for bottom,left of axis
+    //    direction -- 'horizontal', 'vertical'
+    //    label -- axis name
+    //    range -- object with min,max attributes for the axis values
+    //    tick_range -- object with min,max,step attributes for the tick marks
+    //    grid -- boolean: draw grid lines?
+    function plot(paper,options) {
+        paper.rect(options.bbox.x, options.bbox.y, options.bbox.w, options.bbox.h)
+            .attr({stroke: "black", "stroke-width": 0.5});
+
+        var v,vs,path,tick,t,bbox;
+
+        var dx = options.x.max - options.x.min;
+        var xscale = options.bbox.w / dx;
+        function xscreen(x) { return options.bbox.x + (x - options.x.min)*xscale; }
+
+        var dy = options.y.max - options.y.min;
+        var yscale = options.bbox.h / dy;
+        function yscreen(y) { return options.bbox.y + options.bbox.h - (y - options.y.min)*yscale; }
+
+        // label X axis, draw grid
+        tick = options.x.tick || {min: options.x.min, max: options.x.max, step: dx/10};
+        var x_label_maxy = options.bbox.y + options.bbox.h;
+        for (v = tick.min; v <= tick.max; v += tick.step) {
+            vs = xscreen(v);
+            // draw grid line
+            if (v != options.x.min && v != options.x.max) {
+                path = "M"+vs+","+options.bbox.y+"v"+options.bbox.h;
+                paper.path(path).attr({stroke: "lightgrey", "stroke-width": 0.5});
+            }
+            // add tick label
+            t = paper.text(vs,options.bbox.y + options.bbox.h + 5,v.toString());
+            bbox = t.getBBox();
+            t.attr('y',bbox.y + bbox.height);  // adjust label downward
+            x_label_maxy = Math.max(x_label_maxy,t.getBBox().y2);
+        }
+        // add axis label if specified
+        if (options.x.label) {
+            t = paper.text(options.bbox.x + options.bbox.w/2,x_label_maxy + 5,options.x.label);
+            bbox = t.getBBox();
+            t.attr('y',bbox.y + bbox.height);  // adjust label downward
+        }
+
+        // label Y axis, draw grid
+        tick = options.y.tick || {min: options.y.min, max: options.y.max, step: dy/10};
+        var y_label_minx = options.bbox.x;
+        for (v = tick.min; v <= tick.max; v += tick.step) {
+            vs = yscreen(v);
+            // draw grid line
+            if (v != options.y.min && v != options.y.max) {
+                path = "M"+options.bbox.x+","+vs+"h"+options.bbox.w;
+            }
+            // add tick label
+            paper.path(path).attr({stroke: "lightgrey", "stroke-width": 0.5});
+            t = paper.text(options.bbox.x - 5, vs, v.toString()).attr("text-anchor","end");
+            y_label_minx = Math.min(y_label_minx,t.getBBox().x);
+        }
+        // add axis label if specified
+        if (options.y.label) {
+            t = paper.text(y_label_minx - 5,options.bbox.y + options.bbox.h/2,options.y.label)
+                .transform('r270');
+        }
+
+        /*
+        // draw axis itself
+        var xorigin = (options.origin && options.origin.x) ? options.origin.x : 0;
+        var yorigin = (options.origin && options.origin.y) ? options.origin.y : 0;
+        var path =  'M' + xorigin + ' ' + yorigin;
+        if (options.direction == 'horizontal') path += 'H' + (options.bbox.x + options.bbox.w);
+        else path += 'V' + (options.bbox.y + options.bbox.h);
+        var axis = paper.path(path);
+        */
+    }
+
+    var paper = Raphael("graph",400,300);
+    plot(paper,{bbox: {x: 40, y: 20, w: 200, h: 200},
+                x: {min: 0, max: 10, tick: {min: 0, max: 10, step: 2}, label: "X Label"},
+                y: {min: 0, max: 10, tick: {min: 0, max: 10, step: 2}, label: "Y Label"}
+               });
+};
+
+$(document).ready(function () { plot(); });
+</script>
+</head>
+<body>
+<div id="graph" class="aGraph" style="position:absolute; top: 0, left: 0; float: left;"></div>
+</body>
+
