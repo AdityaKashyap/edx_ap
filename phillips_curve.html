@@ -1,0 +1,256 @@
+<html>
+<head>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="raphael-min.js"></script>
+<script>
+var philips_curve = function() {
+    //////////////////////////////////////////////////
+    // build  SVG graph using raphael.js
+    //////////////////////////////////////////////////
+
+    // paper is the raphael SVG container
+    // options has the following attributes:
+    //   bbox: rectangle for plot {x: number, y: number, w: number, h: number}
+    //   x: {min: number, max: number, ticks: {min: number, max: number, step: number }, label: string}
+    //   y: {min: number, max: number, ticks: {min: number, max: number, step: number }, label: string}
+    //   label: string heading for entire graph
+    // returns an object with the following attributes:
+    //   x1,y1: upper left corner of plot
+    //   x2,y2: lower right corner of plot
+    //   w: width of plot
+    //   h: height of plot
+    //   xscreen: function to convert x value to x screen coord
+    //   yscreen: function to convert y value to y screen coord
+    //   xvalue: function to convert x screen coord to x value
+    //   yvalue: function to convert y screen coord to y value
+    //   plot: function to plot {points: array of {x:, y:}, color: string}
+    //     returns {path: element, path_string: string}
+    function graph(paper,options) {
+        var result = {
+            x1: options.bbox.x,
+            y1: options.bbox.y,
+            x2: options.bbox.x + options.bbox.w,
+            y2: options.bbox.y + options.bbox.h,
+            w: options.bbox.w,
+            h: options.bbox.y
+        };
+
+        paper.rect(options.bbox.x, options.bbox.y, options.bbox.w, options.bbox.h)
+            .attr({stroke: "black", "stroke-width": 0.5});
+
+        var v,vs,path,tick,t,bbox;
+
+        var dx = options.x.max - options.x.min;
+        var xscale = options.bbox.w / dx;
+        // function mapping x value to x screen coordinate
+        result.xscreen = function (x) { return options.bbox.x + (x - options.x.min)*xscale; };
+        // function mapping x screen coordinate to x value
+        result.xvalue = function (xs) { return (xs - options.bbox.x)/xscale + options.x.min; };
+
+        var dy = options.y.max - options.y.min;
+        var yscale = options.bbox.h / dy;
+        // function mapping y value to y screen coordinate
+        result.yscreen = function (y) { return options.bbox.y + options.bbox.h - (y - options.y.min)*yscale; };
+        // function mapping y screen coordinate to y value
+        result.yvalue = function (ys) { return -((ys - (options.bbox.y + options.bbox.h))/yscale - options.y.min); };
+
+        // label X axis, draw grid
+        tick = options.x.tick || {min: options.x.min, max: options.x.max, step: dx/10};
+        var x_label_maxy = options.bbox.y + options.bbox.h;
+        for (v = tick.min; v <= tick.max; v += tick.step) {
+            vs = result.xscreen(v);
+            // draw grid line
+            if (v != options.x.min && v != options.x.max) {
+                path = "M"+vs+","+options.bbox.y+"v"+options.bbox.h;
+                paper.path(path).attr({stroke: "lightgrey", "stroke-width": 0.5});
+            }
+            // add tick label
+            t = paper.text(vs,result.y2,v.toString());
+            bbox = t.getBBox();
+            t.attr('y',result.y2 + bbox.height/2);  // adjust label downward
+            x_label_maxy = Math.max(x_label_maxy,t.getBBox().y2);
+        }
+        // add axis label if specified
+        if (options.x.label) {
+            t = paper.text(options.bbox.x + options.bbox.w/2,x_label_maxy,options.x.label);
+            bbox = t.getBBox();
+            t.attr('y',x_label_maxy + bbox.height/2);  // adjust label downward
+        }
+
+        // label Y axis, draw grid
+        tick = options.y.tick || {min: options.y.min, max: options.y.max, step: dy/10};
+        var y_label_minx = options.bbox.x;
+        for (v = tick.min; v <= tick.max; v += tick.step) {
+            vs = result.yscreen(v);
+            // draw grid line
+            if (v != options.y.min && v != options.y.max) {
+                path = "M"+options.bbox.x+","+vs+"h"+options.bbox.w;
+            }
+            // add tick label
+            paper.path(path).attr({stroke: "lightgrey", "stroke-width": 0.5});
+            t = paper.text(options.bbox.x - 2,vs,v.toString()).attr("text-anchor","end");
+            y_label_minx = Math.min(y_label_minx,t.getBBox().x);
+        }
+        // add axis label if specified
+        if (options.y.label) {
+            t = paper.text(y_label_minx - 2,options.bbox.y + options.bbox.h/2,options.y.label);
+            bbox = t.getBBox();
+            t.attr('x',y_label_minx - 2 - bbox.height/2);  // adjust label right
+            t.transform('r270');
+        }
+
+        // label the graph
+        if (options.label) {
+            t = paper.text(options.bbox.x + options.bbox.w/2,options.bbox.y,options.label);
+            bbox = t.getBBox();
+            t.attr('y',bbox.y - bbox.height/2);  // adjust label upward
+        }
+
+        // plot data, clipped to plot area
+        var clip_rect = [options.bbox.x.toString(),
+                         options.bbox.y.toString(),
+                         options.bbox.w.toString(),
+                         options.bbox.h.toString()].join(" ");
+        // function to plot a dataset, returns object with path element and path string
+        result.plot = function (dataset) {
+            var p = [];
+            $.each(dataset.points,function (index,point) {
+                p.push(((index == 0)?"M":"L") + result.xscreen(point.x).toString() + "," + result.yscreen(point.y));
+            });
+            // save path element for later manipulation
+            var path_string = p.join('');
+            var path = paper.path(path_string)
+                .attr({stroke: dataset.color || 'black',
+                       "stroke-width": 2,
+                       "clip-rect": clip_rect
+                      });
+            return {path: path, path_string: path_string};
+        };
+
+        return result;
+    }
+
+    //////////////////////////////////////////////////
+    // generate interesting data to plot
+    //////////////////////////////////////////////////
+
+    // compute (x,y) data points for function f
+    // using domain {min: , max: } and range {min: , max: }
+    // quit once we go out of range having found some points
+    function generate_data(f,domain,range,npts) {
+        if (npts === undefined) npts = 100;
+        var found = false;
+        var data = [];
+        var x = domain.min;
+        var step = (domain.max - domain.min)/npts;
+        var y;
+        while (x <= domain.max) {
+            y = f(x);
+            if (y >= range.min && y <= range.max) {
+                 found = true;
+                 data.push({x: x, y: y})
+            } else if (found) break;
+            x += step;
+        }
+        return data;
+    }
+
+    var k=2, x0=8, y0=3;
+    var sras_data = generate_data(function (x) {
+        // equation for a hyperbola with asymptotes at x0, y0
+        return (-k)/(x - x0) + y0;
+    },{min: 0, max: 10},{min: 0, max: 10});
+
+    // simple line using slope, intercept
+    var ad_a = -1; // slope
+    var ad_b = 10; // intercept
+    function ad_f(x) { return ad_a*x + ad_b; };
+
+    //////////////////////////////////////////////////
+    // build the graphs & curves
+    //////////////////////////////////////////////////
+
+    // fill in div.graph with SVG container
+    var paper = Raphael("graph",600,300);
+
+    // first graph shows SRAS and AD curves
+    var graph1 = graph(paper,{
+        bbox: {x: 40, y: 20, w: 200, h: 200},
+        x: {min: 0, max: 10, tick: {min: 0, max: 10, step: 2}, label: "rGDP"},
+        y: {min: 0, max: 10, tick: {min: 0, max: 10, step: 2}, label: "PL"},
+    });
+    var sras = graph1.plot({points: sras_data, color: "red"});
+    var sras_end = sras.path.getPointAtLength(sras.path.getTotalLength());
+    paper.text(sras_end.x + 5,sras_end.y,'SRAS').attr({fill: 'red','text-anchor':'start'});
+
+    // first graph shows Philips Curve
+    var graph2 = graph(paper,{
+        bbox: {x: 300, y: 20, w: 200, h: 200},
+        x: {min: 0, max: x0, tick: {min: 0, max: x0, step: 1}, label: "Inflation rate (%)"},
+        y: {min: -y0, max: 10-y0, tick: {min: -y0, max: 10-y0, step: 1}, label: "Unemployment rate (%)"},
+        label: 'Philips Curve'
+    });
+
+    // we'll be changing AD, so build a function to plot it and its intersection with SRAS
+    var phillips_data = [];
+    var ad,ad_x,ad_y,ad_label,pc_x,phillips_curve,ad_end;
+    function plot_ad() {
+        if (ad) ad.path.remove();   // remove old curve from graph
+        if (ad_x) ad_x.remove();
+        if (ad_y) ad_y.remove();
+        if (ad_label) ad_label.remove();
+        if (pc_x) pc_x.remove();
+
+        ad = graph1.plot({points: generate_data(ad_f,{min:0,max:10},{min:0,max:10},10),
+                          color: "blue"});
+        ad_end = ad.path.getPointAtLength(ad.path.getTotalLength()/2);
+        if (ad_end.x > graph1.x1)
+            ad_label = paper.text(ad_end.x + 5,ad_end.y,'AD').attr({fill: 'blue','text-anchor':'start'});
+        else ad_label = undefined;
+
+        // plot intersection of SRAS and AD
+        var intersection = Raphael.pathIntersection(sras.path_string,ad.path_string)[0];
+        if (intersection) {
+            var xi = graph1.xvalue(intersection.x);
+            var yi = graph1.yvalue(intersection.y);
+
+            var xp = x0 - xi;
+            var yp = yi - y0;
+            var xp_screen = graph2.xscreen(xp);
+            var yp_screen = graph2.yscreen(yp);
+
+            ad_y = paper.path("M"+graph1.x1+","+intersection.y+"H"+xp_screen)
+                .attr({'stroke-dasharray':'-'});
+            ad_x = paper.path("M"+intersection.x+","+intersection.y+"V"+graph1.y2)
+                .attr({'stroke-dasharray':'-'});
+            paper.circle(intersection.x,intersection.y,2).attr({stroke: 'black', fill: 'white'});
+
+            if (phillips_curve) phillips_curve.path.remove();
+            var xp = x0 - xi;
+            var yp = yi - y0;
+            if (phillips_curve) phillips_curve.path.remove();
+            phillips_data.push({x: xp, y:yp});
+            phillips_curve = graph2.plot({points: phillips_data, color: "blue"});
+            pc_x = paper.path("M"+xp_screen+","+yp_screen+"V"+graph2.y2)
+                .attr({'stroke-dasharray':'-'});
+            paper.circle(xp_screen,yp_screen,2).attr({stroke: 'black', fill: 'white'});
+        }
+    }
+
+    // plot different AD curves, one per second
+    ad_b = 20;
+    function test() {
+        plot_ad();
+        ad_b -= 1;
+        if (ad_b >= 0) setTimeout(test,1000);
+    }
+    test();
+};
+
+$(document).ready(function () { philips_curve(); });
+</script>
+</head>
+<body>
+<div id="graph" class="aGraph" style="position:absolute; top: 0, left: 0; float: left;"></div>
+</body>
+
