@@ -174,7 +174,7 @@ var philips_curve = function() {
     // build the graphs & curves
     //////////////////////////////////////////////////
 
-    // fill in div.graph with SVG container
+    // fill in #graph with SVG container
     var paper = Raphael("graph",600,300);
 
     // first graph shows SRAS and AD curves
@@ -199,7 +199,7 @@ var philips_curve = function() {
         bbox: {x: 300, y: 20, w: 200, h: 200},
         x: {min: 0, max: x0, tick: {min: 0, max: x0, step: 1}, label: "Inflation rate (%)"},
         y: {min: -y0, max: 10-y0, tick: {min: -y0, max: 10-y0, step: 1}, label: "Unemployment rate (%)"},
-        label: 'Philips Curve'
+        label: 'Phillips Curve'
     });
     var pc_x = paper.path("M0,0").attr({'stroke-dasharray':'-'});
     var phillips_curve = graph2.plot({points: [ad_end], color:"blue"});
@@ -219,6 +219,7 @@ var philips_curve = function() {
             var xi = graph1.xvalue(intersection.x);
             var yi = graph1.yvalue(intersection.y);
 
+            // compute coords of intersection in Philips Curve graph
             var xp = x0 - xi;
             var yp = yi - y0;
             var xp_screen = graph2.xscreen(xp);
