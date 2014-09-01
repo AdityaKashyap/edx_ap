@@ -170,7 +170,7 @@ var philips_curve = function() {
     // build the graphs & curves
     //////////////////////////////////////////////////
 
-    // fill in div.graph with SVG container
+    // fill in #graph with SVG container
     var paper = Raphael("graph",600,300);
 
     // first graph shows SRAS and AD curves
@@ -183,7 +183,7 @@ var philips_curve = function() {
     var sras_end = sras.path.getPointAtLength(sras.path.getTotalLength());
     paper.text(sras_end.x + 5,sras_end.y,'SRAS').attr({fill: 'red','text-anchor':'start'});
 
-    // first graph shows Philips Curve
+    // second graph shows Phillips Curve
     var graph2 = graph(paper,{
         bbox: {x: 300, y: 20, w: 200, h: 200},
         x: {min: 0, max: x0, tick: {min: 0, max: x0, step: 1}, label: "Inflation rate (%)"},
@@ -214,6 +214,7 @@ var philips_curve = function() {
             var xi = graph1.xvalue(intersection.x);
             var yi = graph1.yvalue(intersection.y);
 
+            // compute coords of intersection in Philips Curve graph
             var xp = x0 - xi;
             var yp = yi - y0;
             var xp_screen = graph2.xscreen(xp);
@@ -225,9 +226,7 @@ var philips_curve = function() {
                 .attr({'stroke-dasharray':'-'});
             paper.circle(intersection.x,intersection.y,2).attr({stroke: 'black', fill: 'white'});
 
-            if (phillips_curve) phillips_curve.path.remove();
-            var xp = x0 - xi;
-            var yp = yi - y0;
+            // replot phillips curve using additional point
             if (phillips_curve) phillips_curve.path.remove();
             phillips_data.push({x: xp, y:yp});
             phillips_curve = graph2.plot({points: phillips_data, color: "blue"});
@@ -237,12 +236,12 @@ var philips_curve = function() {
         }
     }
 
-    // plot different AD curves, one per second
+    // plot different AD curves, one per 0.5 second
     ad_b = 20;
     function test() {
         plot_ad();
         ad_b -= 1;
-        if (ad_b >= 0) setTimeout(test,1000);
+        if (ad_b >= 0) setTimeout(test,500);
     }
     test();
 };
